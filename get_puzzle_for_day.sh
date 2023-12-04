@@ -16,12 +16,14 @@ curl "https://adventofcode.com/2023/day/$DAY" --compressed -H 'User-Agent: Mozil
 
 set TITLE "(cat tmp.html | htmlq '.day-desc h2')"
 
-printf "## %s\n" "$TITLE" > day$DAY.md
+set MARKDOWN descriptions/day$DAY.md
+
+printf "## %s\n" "$TITLE" > $MARKDOWN
 
 for line in (cat tmp.html | htmlq '.day-desc ' -p -t )
     echo $line
     echo
-end | fmt > day$DAY.md
+end | fmt > $MARKDOWN
 
 
 
