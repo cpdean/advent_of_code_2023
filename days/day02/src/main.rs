@@ -9,7 +9,7 @@ pub fn main() -> std::io::Result<()> {
     let reader: BufReader<File> = BufReader::new(f);
     let lines = reader.lines().flatten().collect::<Vec<_>>();
     println!("pt1: {}", pt1(&lines));
-    //println!("pt2: {}", pt2(&lines));
+    println!("pt2: {}", pt2(&lines));
     Ok(())
 }
 
@@ -89,6 +89,14 @@ pub fn pt1(lines: &Vec<String>) -> i32 {
         .filter(|g| g.can_be_playable_with((12, 13, 14)))
         .collect();
     can_fit.iter().map(|g| g.id).reduce(|a, b| a + b).unwrap()
+}
+
+// find the min number of cubes that could be in a bag to make the game possible
+// sum up the products of every game
+pub fn pt2(lines: &Vec<String>) -> i32 {
+    let games = lines.iter().map(|g| g.parse::<Game>().unwrap());
+    let mins = games.map(|g| g.max()).map(|(r, g, b)| r * g * b);
+    mins.reduce(|a, b| a + b).unwrap()
 }
 
 #[cfg(test)]
