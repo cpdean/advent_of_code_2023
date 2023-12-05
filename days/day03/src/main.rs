@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
     str::FromStr,
@@ -10,7 +10,7 @@ pub fn main() -> std::io::Result<()> {
     let reader: BufReader<File> = BufReader::new(f);
     let lines = reader.lines().flatten().collect::<Vec<_>>();
     println!("pt1: {}", pt1(&lines));
-    //println!("pt2: {}", pt2(&lines));
+    println!("pt2: {}", pt2(&lines));
     Ok(())
 }
 
@@ -18,6 +18,13 @@ pub fn pt1(lines: &Vec<String>) -> i32 {
     let p = parsed_schematic(lines);
     let n = numbers_touching_a_symbol(p);
     n.iter().sum()
+}
+
+pub fn pt2(lines: &Vec<String>) -> i32 {
+    let p = parsed_schematic(lines);
+    let n = touching_gear(p);
+
+    n.iter().map(|(a, b)| a * b).sum()
 }
 
 #[derive(Debug, PartialEq)]
@@ -70,6 +77,26 @@ fn parsed_schematic(lines: &Vec<String>) -> Vec<((i32, i32), Part)> {
     out
 }
 
+fn has_collision(
+    to_check: &(&(i32, i32), &String),
+    lookup: &HashSet<(i32, i32)>,
+) -> Option<(i32, i32)> {
+    let ((x, y), num) = to_check;
+    // iterate over the bounding box around the number, checking our lookup
+    // push and break when you find one
+    let upper_left = (x - 1, y - 1);
+    let bottom_right = (x + num.len() as i32, y + 1);
+
+    for iy in upper_left.1..=bottom_right.1 {
+        for ix in upper_left.0..=bottom_right.0 {
+            if lookup.contains(&(ix, iy)) {
+                return Some((ix, iy));
+            }
+        }
+    }
+    None
+}
+
 fn numbers_touching_a_symbol(parsed: Vec<((i32, i32), Part)>) -> Vec<i32> {
     let mut numbers = vec![];
     let lookup: HashSet<(i32, i32)> = parsed
@@ -80,25 +107,51 @@ fn numbers_touching_a_symbol(parsed: Vec<((i32, i32), Part)>) -> Vec<i32> {
         })
         .map(|((x, y), p)| (*x as i32, *y as i32))
         .collect();
-    for ((x, y), num) in parsed.iter().flat_map(|(coord, p)| match p {
+    let numbers_to_check = parsed.iter().flat_map(|(coord, p)| match p {
         Part::Num(s) => Some((coord, s)),
         _ => None,
-    }) {
-        // iterate over the bounding box around the number, checking our lookup
-        // push and break when you find one
-        let upper_left = (x - 1, y - 1);
-        let bottom_right = (x + num.len() as i32, y + 1);
-
-        'checking_this_num: for iy in upper_left.1..=bottom_right.1 {
-            for ix in upper_left.0..=bottom_right.0 {
-                if lookup.contains(&(ix, iy)) {
-                    numbers.push(num.parse::<i32>().unwrap());
-                    break 'checking_this_num;
-                }
-            }
+    });
+    for to_check in numbers_to_check {
+        if let Some(coord) = has_collision(&to_check, &lookup) {
+            let (_, num) = to_check;
+            numbers.push(num.parse::<i32>().unwrap());
         }
     }
     numbers
+}
+
+fn touching_gear(parsed: Vec<((i32, i32), Part)>) -> Vec<(i32, i32)> {
+    let mut gear_pairs = HashMap::new();
+    let gears: HashSet<(i32, i32)> = parsed
+        .iter()
+        .flat_map(|(coord, p)| match p {
+            Part::Symbol(x) if x == &"*".to_string() => Some(coord.clone()),
+            Part::Symbol(_) => None,
+            Part::Num(_) => None,
+        })
+        .collect();
+
+    let numbers_to_check = parsed.iter().flat_map(|(coord, p)| match p {
+        Part::Num(s) => Some((coord, s)),
+        _ => None,
+    });
+    for to_check in numbers_to_check {
+        if let Some(coord) = has_collision(&to_check, &gears) {
+            let (_, num) = to_check;
+            let parsed_number = num.parse::<i32>().unwrap();
+            if !gear_pairs.contains_key(&coord) {
+                gear_pairs.insert(coord.clone(), vec![parsed_number]);
+            } else {
+                let pairs = gear_pairs.get_mut(&coord).unwrap();
+                pairs.push(parsed_number);
+            }
+        }
+    }
+    gear_pairs
+        .iter()
+        .filter(|(_, pairs)| pairs.len() == 2)
+        .map(|(_, pairs)| (pairs[0], pairs[1]))
+        .collect()
 }
 
 #[cfg(test)]
