@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
-    str::FromStr,
 };
 
 pub fn main() -> std::io::Result<()> {
@@ -101,18 +100,18 @@ fn numbers_touching_a_symbol(parsed: Vec<((i32, i32), Part)>) -> Vec<i32> {
     let mut numbers = vec![];
     let lookup: HashSet<(i32, i32)> = parsed
         .iter()
-        .filter(|(coord, p)| match p {
+        .filter(|(_coord, p)| match p {
             Part::Num(_) => false,
             _ => true,
         })
-        .map(|((x, y), p)| (*x as i32, *y as i32))
+        .map(|((x, y), _p)| (*x as i32, *y as i32))
         .collect();
     let numbers_to_check = parsed.iter().flat_map(|(coord, p)| match p {
         Part::Num(s) => Some((coord, s)),
         _ => None,
     });
     for to_check in numbers_to_check {
-        if let Some(coord) = has_collision(&to_check, &lookup) {
+        if let Some(_coord) = has_collision(&to_check, &lookup) {
             let (_, num) = to_check;
             numbers.push(num.parse::<i32>().unwrap());
         }
