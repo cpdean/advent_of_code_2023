@@ -1,19 +1,19 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
-    str::FromStr,
 };
 
 pub fn main() -> std::io::Result<()> {
-    let f = File::open("data/4.1.txt")?;
+    let f = File::open("data/5.1.txt")?;
     let reader: BufReader<File> = BufReader::new(f);
     let lines = reader.lines().flatten().collect::<Vec<_>>();
+    // pt1: 135086721  "your answer is too low"
     println!("pt1: {}", pt1(&lines));
     //println!("pt2: {}", pt2(&lines));
     Ok(())
 }
 
-pub fn pt1(lines: &Vec<String>) -> i32 {
+pub fn pt1(lines: &Vec<String>) -> u64 {
     let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
     let locations = almanac.seeds.iter().map(|s| almanac.seed_to_location(s));
     locations.min().unwrap()
@@ -30,7 +30,7 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
         .unwrap()
         .split("seeds: ")
         .nth(1)
-        .map(|line| line.split(" ").map(|n| n.parse::<i32>().unwrap()).collect())
+        .map(|line| line.split(" ").map(|n| n.parse::<u64>().unwrap()).collect())
         .unwrap();
 
     let mut tmp = vec![];
@@ -40,6 +40,7 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
         if line == "" {
             if tmp.len() > 0 {
                 maps.push(AlmanacMap::try_from(&tmp).unwrap());
+                tmp = vec![];
             }
         } else {
             tmp.push(line);
@@ -49,13 +50,13 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
 }
 
 struct Almanac {
-    seeds: Vec<i32>,
+    seeds: Vec<u64>,
     // assume order is the seed -> ... -> location path
     maps: Vec<AlmanacMap>,
 }
 
 impl Almanac {
-    fn seed_to_location(&self, seed: &i32) -> i32 {
+    fn seed_to_location(&self, seed: &u64) -> u64 {
         let mut loc = seed.clone();
         for map in &self.maps {
             loc = map.source_to_dest(seed);
@@ -64,16 +65,18 @@ impl Almanac {
     }
 }
 
+#[allow(dead_code)]
 struct AlmanacMap {
     source_name: String,
     destination_name: String,
     mapping: Vec<MappingLine>,
 }
 
+#[derive(Debug)]
 struct MappingLine {
-    destination_start: i32,
-    source_start: i32,
-    length: i32,
+    destination_start: u64,
+    source_start: u64,
+    length: u64,
 }
 
 impl TryFrom<&Vec<&str>> for AlmanacMap {
@@ -116,15 +119,18 @@ impl AlmanacMap {
     ///
     /// if the input falls within a range covered by the map, return the translated location
     /// otherwise return the same input
-    fn source_to_dest(&self, n: &i32) -> i32 {
+    fn source_to_dest(&self, n: &u64) -> u64 {
         let matching_lines = self
             .mapping
             .iter()
-            .filter(|line| &line.source_start <= n && n >= &(line.source_start + line.length))
+            .filter(|line| &line.source_start <= n && n <= &(line.source_start + line.length))
             .collect::<Vec<_>>();
         // this isn't mentioned as a possibility, but i want to crash in case this results in a bug
         // later
-        assert!(matching_lines.len() == 1);
+        if matching_lines.len() == 0 {
+            return *n;
+        }
+        assert!(matching_lines.len() == 1, "{n} is in {matching_lines:?}");
 
         let mapping = matching_lines[0];
 
