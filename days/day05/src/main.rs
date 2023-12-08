@@ -8,6 +8,8 @@ pub fn main() -> std::io::Result<()> {
     let reader: BufReader<File> = BufReader::new(f);
     let lines = reader.lines().flatten().collect::<Vec<_>>();
     // pt1: 135086721  "your answer is too low"
+    // i was repeatedly using 'seed' in the chained lookup. proper chaining:
+    // pt1: 130120695  "your answer is too low"
     println!("pt1: {}", pt1(&lines));
     //println!("pt2: {}", pt2(&lines));
     Ok(())
@@ -46,6 +48,9 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
             tmp.push(line);
         }
     }
+    if tmp.len() > 2 {
+        maps.push(AlmanacMap::try_from(&tmp).unwrap());
+    }
     Almanac { seeds, maps }
 }
 
@@ -58,9 +63,23 @@ struct Almanac {
 impl Almanac {
     fn seed_to_location(&self, seed: &u64) -> u64 {
         let mut loc = seed.clone();
+        //let mut path = vec![];
         for map in &self.maps {
-            loc = map.source_to_dest(seed);
+            //let o = loc;
+            loc = map.source_to_dest(&loc);
+            /*
+            path.push(format!(
+                "{o} : {0} -> {1} : {loc}",
+                map.source_name, map.destination_name
+            ));
+            */
         }
+        /*
+        if loc == 130120695 {
+            dbg!(seed);
+            dbg!(path);
+        }
+        */
         loc
     }
 }
