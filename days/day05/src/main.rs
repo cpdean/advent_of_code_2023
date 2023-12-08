@@ -14,11 +14,55 @@ pub fn main() -> std::io::Result<()> {
 }
 
 pub fn pt1(lines: &Vec<String>) -> i32 {
-    let scores = lines.iter();
-    0
+    let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
+    let locations = almanac.seeds.iter().map(|s| almanac.seed_to_location(s));
+    locations.min().unwrap()
 }
 
-pub fn parse_almanac<'a>(s: impl Iterator<Item = &'a str>) -> () {}
+fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
+    // seeds: 79 14 55 13
+    //
+    // seed-to-soil map:
+    // 50 98 2
+    // 52 50 48
+    let seeds = s
+        .next()
+        .unwrap()
+        .split("seeds: ")
+        .nth(1)
+        .map(|line| line.split(" ").map(|n| n.parse::<i32>().unwrap()).collect())
+        .unwrap();
+
+    let mut tmp = vec![];
+    let mut maps = vec![];
+
+    while let Some(line) = s.next() {
+        if line == "" {
+            if tmp.len() > 0 {
+                maps.push(AlmanacMap::try_from(&tmp).unwrap());
+            }
+        } else {
+            tmp.push(line);
+        }
+    }
+    Almanac { seeds, maps }
+}
+
+struct Almanac {
+    seeds: Vec<i32>,
+    // assume order is the seed -> ... -> location path
+    maps: Vec<AlmanacMap>,
+}
+
+impl Almanac {
+    fn seed_to_location(&self, seed: &i32) -> i32 {
+        let mut loc = seed.clone();
+        for map in &self.maps {
+            loc = map.source_to_dest(seed);
+        }
+        loc
+    }
+}
 
 struct AlmanacMap {
     source_name: String,
@@ -32,8 +76,8 @@ struct MappingLine {
     length: i32,
 }
 
-impl FromStr for AlmanacMap {
-    type Err = ();
+impl TryFrom<&Vec<&str>> for AlmanacMap {
+    type Error = ();
 
     /// parse this
     //
@@ -42,8 +86,50 @@ impl FromStr for AlmanacMap {
     // 50 98 2
     // 52 50 48
     // ```
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
+    fn try_from(value: &Vec<&str>) -> Result<Self, Self::Error> {
+        let name = value[0].split(" map:").next().unwrap();
+        let parts = name.split("-to-").collect::<Vec<_>>();
+        let source_name = parts[0].to_string();
+        let destination_name = parts[1].to_string();
+        let mut mapping = vec![];
+        for line in &value[1..] {
+            let nums: Vec<_> = line.split(" ").map(|n| n.parse().unwrap()).collect();
+            let destination_start = nums[0];
+            let source_start = nums[1];
+            let length = nums[2];
+            mapping.push(MappingLine {
+                destination_start,
+                source_start,
+                length,
+            });
+        }
+        Ok(AlmanacMap {
+            source_name,
+            destination_name,
+            mapping,
+        })
+    }
+}
+
+impl AlmanacMap {
+    /// following the rules of the problem
+    ///
+    /// if the input falls within a range covered by the map, return the translated location
+    /// otherwise return the same input
+    fn source_to_dest(&self, n: &i32) -> i32 {
+        let matching_lines = self
+            .mapping
+            .iter()
+            .filter(|line| &line.source_start <= n && n >= &(line.source_start + line.length))
+            .collect::<Vec<_>>();
+        // this isn't mentioned as a possibility, but i want to crash in case this results in a bug
+        // later
+        assert!(matching_lines.len() == 1);
+
+        let mapping = matching_lines[0];
+
+        let delta = n - mapping.source_start;
+        mapping.destination_start + delta
     }
 }
 
@@ -88,5 +174,9 @@ humidity-to-location map:
     #[test]
     fn test_ex1() {
         let almanac = parse_almanac(EXAMPLE.split("\n"));
+        let m = &almanac.maps[0];
+        assert_eq!(m.source_name, "seed");
+        assert_eq!(m.destination_name, "soil");
+        assert_eq!(m.source_to_dest(&79), 81);
     }
 }
