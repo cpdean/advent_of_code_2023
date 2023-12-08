@@ -11,7 +11,7 @@ pub fn main() -> std::io::Result<()> {
     // i was repeatedly using 'seed' in the chained lookup. proper chaining:
     // pt1: 130120695  "your answer is too low"
     println!("pt1: {}", pt1(&lines));
-    //println!("pt2: {}", pt2(&lines));
+    println!("pt2: {}", pt2(&lines));
     Ok(())
 }
 
@@ -19,6 +19,16 @@ pub fn pt1(lines: &Vec<String>) -> u64 {
     let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
     let locations = almanac.seeds.iter().map(|s| almanac.seed_to_location(s));
     locations.min().unwrap()
+}
+
+// the input seeds list is not a list of seeds, but a list of ranges
+//
+// if the ranges were materialized to a list of seeds, what's the lowest loc number now?
+pub fn pt2(lines: &Vec<String>) -> u64 {
+    let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
+    // TODO: over 2b seeds. do I need to optimize?
+    let lengths = almanac.seeds.iter().enumerate().filter(|(i, e)| i % 2 == 1);
+    lengths.map(|(i, e)| e).sum()
 }
 
 fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
