@@ -7,9 +7,6 @@ pub fn main() -> std::io::Result<()> {
     let f = File::open("data/5.1.txt")?;
     let reader: BufReader<File> = BufReader::new(f);
     let lines = reader.lines().flatten().collect::<Vec<_>>();
-    // pt1: 135086721  "your answer is too low"
-    // i was repeatedly using 'seed' in the chained lookup. proper chaining:
-    // pt1: 130120695  "your answer is too low"
     println!("pt1: {}", pt1(&lines));
     println!("pt2: {}", pt2(&lines));
     Ok(())
@@ -26,9 +23,80 @@ pub fn pt1(lines: &Vec<String>) -> u64 {
 // if the ranges were materialized to a list of seeds, what's the lowest loc number now?
 pub fn pt2(lines: &Vec<String>) -> u64 {
     let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
-    // TODO: over 2b seeds. do I need to optimize?
-    let lengths = almanac.seeds.iter().enumerate().filter(|(i, e)| i % 2 == 1);
-    lengths.map(|(i, e)| e).sum()
+    pt2_naiive(&almanac)
+}
+
+/// naiive implementation, just do the work of implementing the seed explosion, then redo
+/// the problem as normal.
+//  the following showed that there are over 2b seeds for pt2. maybe that's not
+//  big enough to worry about optimization
+//
+//      let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
+//      let lengths = almanac
+//          .seeds
+//          .iter()
+//          .enumerate()
+//          .filter(|(i, _e)| i % 2 == 1);
+//      lengths.map(|(_i, e)| e).sum()
+//
+//  2_037_733_040
+/// this was going to take 3 hr on debug, few minutes on release build
+/// broke on my assert where a seed must map to only one mappingline
+fn pt2_naiive(almanac: &Almanac) -> u64 {
+    let seed_list = SeedList::new(almanac);
+    let locations = seed_list.enumerate().map(|(i, s)| {
+        // print about every 0.01% increment to track progress
+        if i % 200_000 == 0 {
+            let percent = i as f64 / 2_037_733_040.0;
+            println!("progress: {:.4}%", percent * 100.0);
+        }
+        almanac.seed_to_location(&s)
+    });
+    locations.min().unwrap()
+}
+
+struct SeedList {
+    seed_ranges: Vec<(u64, u64)>,
+    // current range the iterator is sourcing from
+    range_position: usize,
+    // position in current range
+    cursor_position: u64,
+}
+
+impl SeedList {
+    fn new(almanac: &Almanac) -> Self {
+        let mut seed_ranges = vec![];
+        for i in 0..(almanac.seeds.len() / 2) {
+            seed_ranges.push((almanac.seeds[i], almanac.seeds[i + 1]));
+        }
+        Self {
+            seed_ranges,
+            range_position: 0,
+            cursor_position: 0,
+        }
+    }
+}
+
+impl Iterator for SeedList {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (range_start, range_length) = self.seed_ranges[self.range_position];
+        if self.cursor_position <= range_length {
+            let ret = range_start + self.cursor_position;
+            self.cursor_position += 1;
+            Some(ret)
+        } else {
+            self.range_position += 1;
+            if self.range_position >= self.seed_ranges.len() {
+                None
+            } else {
+                let ret = self.seed_ranges[self.range_position].0;
+                self.cursor_position = 1;
+                Some(ret)
+            }
+        }
+    }
 }
 
 fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
