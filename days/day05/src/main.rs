@@ -23,7 +23,19 @@ pub fn pt1(lines: &Vec<String>) -> u64 {
 // if the ranges were materialized to a list of seeds, what's the lowest loc number now?
 pub fn pt2(lines: &Vec<String>) -> u64 {
     let almanac = parse_almanac(lines.iter().map(|s| s.as_str()));
-    pt2_naiive(&almanac)
+    //pt2_naiive(&almanac)
+    pt2_reverse_strategy(&almanac)
+}
+
+/// this strategy will cut down the number of lookups by doing it backwards.
+/// the problem only wants the very lowest location id, so we can just check
+/// possible location ids in order and stop early instead of going through the
+/// whole set of lookups and see which one was smallest.
+///
+/// this approach should also account for the issue of a seed mapping to multiple outputs, which
+/// broke the naiive strategy
+fn pt2_reverse_strategy(almanac: &Almanac) -> u64 {
+    0
 }
 
 /// naiive implementation, just do the work of implementing the seed explosion, then redo
@@ -43,7 +55,7 @@ pub fn pt2(lines: &Vec<String>) -> u64 {
 /// this was going to take 3 hr on debug, few minutes on release build
 /// broke on my assert where a seed must map to only one mappingline
 fn pt2_naiive(almanac: &Almanac) -> u64 {
-    let seed_list = SeedList::new(almanac);
+    let seed_list = SeedList::new(&almanac.seeds);
     let locations = seed_list.enumerate().map(|(i, s)| {
         // print about every 0.01% increment to track progress
         if i % 200_000 == 0 {
@@ -64,10 +76,10 @@ struct SeedList {
 }
 
 impl SeedList {
-    fn new(almanac: &Almanac) -> Self {
+    fn new(seeds: &Vec<u64>) -> Self {
         let mut seed_ranges = vec![];
-        for i in 0..(almanac.seeds.len() / 2) {
-            seed_ranges.push((almanac.seeds[i], almanac.seeds[i + 1]));
+        for i in 0..(seeds.len() / 2) {
+            seed_ranges.push((seeds[i], seeds[i + 1]));
         }
         Self {
             seed_ranges,
@@ -105,7 +117,7 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
     // seed-to-soil map:
     // 50 98 2
     // 52 50 48
-    let seeds = s
+    let seeds: Vec<_> = s
         .next()
         .unwrap()
         .split("seeds: ")
@@ -129,16 +141,34 @@ fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
     if tmp.len() > 2 {
         maps.push(AlmanacMap::try_from(&tmp).unwrap());
     }
-    Almanac { seeds, maps }
+    Almanac {
+        seeds: seeds.clone(),
+        maps,
+        seed_list: SeedList::new(&seeds),
+    }
 }
 
 struct Almanac {
     seeds: Vec<u64>,
     // assume order is the seed -> ... -> location path
     maps: Vec<AlmanacMap>,
+    seed_list: SeedList,
 }
 
 impl Almanac {
+    fn new(
+        seeds: Vec<u64>,
+        // assume order is the seed -> ... -> location path
+        maps: Vec<AlmanacMap>,
+    ) -> Self {
+        let seed_list = SeedList::new(&seeds);
+        Self {
+            seeds,
+            maps,
+            seed_list,
+        }
+    }
+
     fn seed_to_location(&self, seed: &u64) -> u64 {
         let mut loc = seed.clone();
         //let mut path = vec![];
@@ -159,6 +189,12 @@ impl Almanac {
         }
         */
         loc
+    }
+
+    /// pt 1 would be a Vec::contains, but pt2 changed
+    /// the rules such that a the seed list denotes ranges of seeds
+    fn pt2_contains_seed(&self, seed: u64) -> bool {
+        true
     }
 }
 
