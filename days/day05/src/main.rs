@@ -87,6 +87,15 @@ impl SeedList {
             cursor_position: 0,
         }
     }
+
+    fn contains_seed(&self, seed: &u64) -> bool {
+        for (start, length) in &self.seed_ranges {
+            if start <= seed && (seed <= &(start + length)) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Iterator for SeedList {
@@ -193,8 +202,8 @@ impl Almanac {
 
     /// pt 1 would be a Vec::contains, but pt2 changed
     /// the rules such that a the seed list denotes ranges of seeds
-    fn pt2_contains_seed(&self, seed: u64) -> bool {
-        true
+    fn pt2_contains_seed(&self, seed: &u64) -> bool {
+        self.seed_list.contains_seed(seed)
     }
 }
 
@@ -317,5 +326,11 @@ humidity-to-location map:
         assert_eq!(m.source_name, "seed");
         assert_eq!(m.destination_name, "soil");
         assert_eq!(m.source_to_dest(&79), 81);
+    }
+    #[test]
+    fn pt2_contains() {
+        let almanac = parse_almanac(EXAMPLE.split("\n"));
+        assert!(almanac.pt2_contains_seed(&80));
+        assert!(!almanac.pt2_contains_seed(&10));
     }
 }
