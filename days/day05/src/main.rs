@@ -120,6 +120,18 @@ impl Iterator for SeedList {
     }
 }
 
+struct OrderedLocations {
+    source_location_map: Vec<(u64, u64, u64)>,
+}
+
+impl OrderedLocations {
+    fn new(source_location_map: &Vec<(u64, u64, u64)>) -> Self {
+        Self {
+            source_location_map: source_location_map.clone(),
+        }
+    }
+}
+
 fn parse_almanac<'a>(mut s: impl Iterator<Item = &'a str>) -> Almanac {
     // seeds: 79 14 55 13
     //
