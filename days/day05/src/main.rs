@@ -121,14 +121,50 @@ impl Iterator for SeedList {
 }
 
 struct OrderedLocations {
-    source_location_map: Vec<(u64, u64, u64)>,
+    source_location_map: Vec<MappingLine>,
+    current_section: usize,
+    current_seed: u64,
 }
 
 impl OrderedLocations {
-    fn new(source_location_map: &Vec<(u64, u64, u64)>) -> Self {
+    fn new(source_location_map: &Vec<MappingLine>) -> Self {
+        let mut source_location_map: Vec<_> = source_location_map.to_vec();
+        source_location_map.sort_by(|a, b| {
+            a.destination_start
+                .partial_cmp(&b.destination_start)
+                .unwrap()
+        });
+        let current_section = 0;
+        // Iterator::next impl assumes current_seed was the previously returned value.
+        // start this at start - 1
+        let current_seed = source_location_map[current_section].destination_start - 1;
         Self {
-            source_location_map: source_location_map.clone(),
+            source_location_map,
+            current_section,
+            current_seed,
         }
+    }
+}
+
+impl Iterator for OrderedLocations {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let MappingLine {
+            destination_start,
+            length,
+            ..
+        } = self.source_location_map[self.current_section];
+        if self.current_seed >= destination_start + length {
+            if self.current_section + 1 >= self.source_location_map.len() {
+                return None;
+            }
+            self.current_section += 1;
+            self.current_seed = self.source_location_map[self.current_section].destination_start;
+        } else {
+            self.current_seed += 1;
+        }
+        Some(self.current_seed)
     }
 }
 
@@ -217,8 +253,22 @@ impl Almanac {
     fn pt2_contains_seed(&self, seed: &u64) -> bool {
         self.seed_list.contains_seed(seed)
     }
+
+    /// instead of following the instructions of seed -> soil -> ... -> location
+    /// do the lookup in reverse and see if the almanac has that corresponding seed
+    fn pt2_contains_location(&self, location: &u64) -> bool {
+        let mut loc = location.clone();
+        let mut maps = self.maps.clone();
+        maps.reverse();
+        //let mut path = vec![];
+        for map in maps {
+            loc = map.dest_to_source(dbg!(&loc))[0];
+        }
+        self.pt2_contains_seed(&loc)
+    }
 }
 
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 struct AlmanacMap {
     source_name: String,
@@ -226,7 +276,7 @@ struct AlmanacMap {
     mapping: Vec<MappingLine>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MappingLine {
     destination_start: u64,
     source_start: u64,
@@ -279,8 +329,7 @@ impl AlmanacMap {
             .iter()
             .filter(|line| &line.source_start <= n && n <= &(line.source_start + line.length))
             .collect::<Vec<_>>();
-        // this isn't mentioned as a possibility, but i want to crash in case this results in a bug
-        // later
+
         if matching_lines.len() == 0 {
             return *n;
         }
@@ -290,6 +339,30 @@ impl AlmanacMap {
 
         let delta = n - mapping.source_start;
         mapping.destination_start + delta
+    }
+
+    fn dest_to_source(&self, n: &u64) -> Vec<u64> {
+        // return a vec because multiple mappinglines can overlap, as per the example
+        //let mut output = vec![];
+
+        let matching_lines = self
+            .mapping
+            .iter()
+            .filter(|line| {
+                &line.destination_start <= n && n <= &(line.destination_start + line.length)
+            })
+            .collect::<Vec<_>>();
+
+        if dbg!(&matching_lines).len() == 0 {
+            return vec![*n];
+        }
+        // assuming no overlaps actually just to see what happens
+        assert!(matching_lines.len() == 1, "{n} is in {matching_lines:?}");
+
+        let mapping = matching_lines[0];
+
+        let delta = n - mapping.destination_start;
+        vec![mapping.source_start + delta]
     }
 }
 
@@ -339,10 +412,30 @@ humidity-to-location map:
         assert_eq!(m.destination_name, "soil");
         assert_eq!(m.source_to_dest(&79), 81);
     }
+
     #[test]
     fn pt2_contains() {
         let almanac = parse_almanac(EXAMPLE.split("\n"));
         assert!(almanac.pt2_contains_seed(&80));
         assert!(!almanac.pt2_contains_seed(&10));
+    }
+
+    #[test]
+    fn pt2_ordered_locations() {
+        let almanac = parse_almanac(EXAMPLE.split("\n"));
+        let location_map = &almanac.maps[almanac.maps.len() - 1];
+        let locations = OrderedLocations::new(&location_map.mapping);
+        let sorted: Vec<_> = locations.take(200).collect();
+        assert_eq!(sorted[0], 56);
+        assert_eq!(sorted[sorted.len() - 1], 97, "{:?}", sorted);
+        assert!(sorted.len() != 200, "{:?}", sorted);
+    }
+
+    #[test]
+    fn pt2_check_if_has_locations() {
+        let almanac = parse_almanac(EXAMPLE.split("\n"));
+        let loc_map = &almanac.maps[almanac.maps.len() - 1];
+        assert_eq!(loc_map.dest_to_source(&81)[0], 77);
+        assert!(almanac.pt2_contains_location(&81));
     }
 }
