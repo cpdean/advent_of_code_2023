@@ -262,7 +262,7 @@ impl Almanac {
         maps.reverse();
         //let mut path = vec![];
         for map in maps {
-            loc = map.dest_to_source(dbg!(&loc))[0];
+            loc = map.dest_to_source(&loc)[0];
         }
         self.pt2_contains_seed(&loc)
     }
@@ -353,7 +353,7 @@ impl AlmanacMap {
             })
             .collect::<Vec<_>>();
 
-        if dbg!(&matching_lines).len() == 0 {
+        if matching_lines.len() == 0 {
             return vec![*n];
         }
         // assuming no overlaps actually just to see what happens
@@ -435,7 +435,9 @@ humidity-to-location map:
     fn pt2_check_if_has_locations() {
         let almanac = parse_almanac(EXAMPLE.split("\n"));
         let loc_map = &almanac.maps[almanac.maps.len() - 1];
-        assert_eq!(loc_map.dest_to_source(&81)[0], 77);
-        assert!(almanac.pt2_contains_location(&81));
+        assert_eq!(almanac.pt2_contains_seed(&79), true);
+        assert_eq!(loc_map.source_to_dest(&79), 83);
+        assert_eq!(loc_map.dest_to_source(&83)[0], 79);
+        assert!(almanac.pt2_contains_location(&83));
     }
 }
