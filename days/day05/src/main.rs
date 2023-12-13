@@ -34,7 +34,17 @@ pub fn pt2(lines: &Vec<String>) -> u64 {
 ///
 /// this approach should also account for the issue of a seed mapping to multiple outputs, which
 /// broke the naiive strategy
+/// pt2: 44642725  "thats too high"
 fn pt2_reverse_strategy(almanac: &Almanac) -> u64 {
+    let location_map = &almanac.maps[&almanac.maps.len() - 1];
+    // i am an idiot. of course you can still have a location outside of the
+    // location mapping that will hit a seed.
+    //let locations = OrderedLocations::new(&location_map.mapping);
+    for loc in 0..44_642_725 {
+        if almanac.pt2_contains_location(&loc) {
+            return loc;
+        }
+    }
     0
 }
 
@@ -54,6 +64,7 @@ fn pt2_reverse_strategy(almanac: &Almanac) -> u64 {
 //  2_037_733_040
 /// this was going to take 3 hr on debug, few minutes on release build
 /// broke on my assert where a seed must map to only one mappingline
+#[allow(dead_code)]
 fn pt2_naiive(almanac: &Almanac) -> u64 {
     let seed_list = SeedList::new(&almanac.seeds);
     let locations = seed_list.enumerate().map(|(i, s)| {
@@ -257,14 +268,27 @@ impl Almanac {
     /// instead of following the instructions of seed -> soil -> ... -> location
     /// do the lookup in reverse and see if the almanac has that corresponding seed
     fn pt2_contains_location(&self, location: &u64) -> bool {
-        let mut loc = location.clone();
+        let mut loc = vec![location.clone()];
         let mut maps = self.maps.clone();
         maps.reverse();
         //let mut path = vec![];
         for map in maps {
-            loc = map.dest_to_source(&loc)[0];
+            let mut next_locations = vec![];
+            for found_location in loc {
+                let newly_found_locations = map.dest_to_source(&found_location);
+                for n in newly_found_locations {
+                    next_locations.push(n);
+                }
+            }
+            loc = next_locations;
         }
-        self.pt2_contains_seed(&loc)
+
+        for potential_seeds in loc {
+            if self.pt2_contains_seed(&potential_seeds) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -356,13 +380,16 @@ impl AlmanacMap {
         if matching_lines.len() == 0 {
             return vec![*n];
         }
+        let mut found_mappings = vec![];
         // assuming no overlaps actually just to see what happens
-        assert!(matching_lines.len() == 1, "{n} is in {matching_lines:?}");
+        //assert!(matching_lines.len() == 1, "{n} is in {matching_lines:?}");
 
-        let mapping = matching_lines[0];
+        for mapping in matching_lines {
+            let delta = n - mapping.destination_start;
+            found_mappings.push(mapping.source_start + delta);
+        }
 
-        let delta = n - mapping.destination_start;
-        vec![mapping.source_start + delta]
+        found_mappings
     }
 }
 
